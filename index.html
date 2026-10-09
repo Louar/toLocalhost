@@ -66,6 +66,11 @@
             </div>
           </div>
           <div class="path">
+            <label for="external-path">External callback path</label>
+            <input id="external-path" type="text" required value="/" placeholder="/api/providers/strava/callback" spellcheck="false" />
+            <p class="hint">Appended to this GitHub Pages URL. For example, /api/providers/strava/callback.</p>
+          </div>
+          <div class="path">
             <label for="path">Local callback path</label>
             <input id="path" type="text" required value="/" placeholder="/auth/callback" spellcheck="false" />
             <p class="hint">For example, /auth/callback. The incoming query string and fragment will be added automatically.</p>
@@ -83,7 +88,7 @@
         <div>
           <p class="info-label">Register this URL with your OAuth provider</p>
           <div class="value-row"><code id="public-url"></code><button class="secondary" id="copy-url" type="button">Copy URL</button></div>
-          <p class="hint">Use this exact HTTPS address as your redirect_uri.</p>
+          <p class="hint">Use this exact HTTPS address as your redirect_uri. GitHub Pages serves nested callback paths through the included custom 404 page.</p>
         </div>
         <div>
           <p class="info-label">Forward incoming callbacks to</p>

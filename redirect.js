@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS = {
     host: 'localhost',
     port: 3000,
     path: '/',
+    externalPath: '/',
 };
 const ALLOWED_HOSTS = new Set([
     'localhost',
@@ -25,6 +26,8 @@ export function validateSettings(value) {
     }
     const candidate = value;
     const { protocol, host, port, path } = candidate;
+    // Settings saved before external paths were supported used the page root.
+    const externalPath = candidate.externalPath ?? '/';
     if (protocol !== 'http:' && protocol !== 'https:') {
         throw new Error('Choose HTTP or HTTPS.');
     }
@@ -40,11 +43,18 @@ export function validateSettings(value) {
         /[?#\\\u0000-\u001f\u007f]/.test(path)) {
         throw new Error('Enter a local path starting with /, without ? or #.');
     }
+    if (typeof externalPath !== 'string' ||
+        !externalPath.startsWith('/') ||
+        externalPath.startsWith('//') ||
+        /[?#\\\u0000-\u001f\u007f]/.test(externalPath)) {
+        throw new Error('Enter an external path starting with /, without ? or #.');
+    }
     return {
         protocol,
         host: host,
         port,
         path,
+        externalPath,
     };
 }
 /** Keep the incoming OAuth query and fragment exactly as supplied. */
@@ -60,24 +70,54 @@ export function buildLocalUrl(incoming, settings) {
 export function hasCallbackData(incoming) {
     return incoming.search.length > 0 || incoming.hash.length > 0;
 }
+function buildExternalCallbackUrl(settings, appUrl) {
+    const callbackUrl = new URL(settings.externalPath.slice(1), appUrl);
+    if (!callbackUrl.pathname.startsWith(appUrl.pathname)) {
+        throw new Error('The external path must stay within this GitHub Pages site.');
+    }
+    return callbackUrl;
+}
 function initializePage() {
-    // Including the pathname prevents settings from colliding across several
+    const appUrl = new URL('.', import.meta.url);
+    // Including the app pathname prevents settings from colliding across
     // repositories hosted on the same username.github.io origin.
-    const storageKey = `oauth-to-localhost:v1:${window.location.pathname}`;
+    const storageKey = `oauth-to-localhost:v1:${appUrl.pathname}`;
     const incoming = new URL(window.location.href);
+    function loadSettings() {
+        try {
+            const stored = window.localStorage.getItem(storageKey);
+            if (!stored) return null;
+            const settings = validateSettings(JSON.parse(stored));
+            buildExternalCallbackUrl(settings, appUrl);
+            return settings;
+        }
+        catch {
+            return null;
+        }
+    }
+    const saved = loadSettings();
+    const savedCallbackUrl = saved
+        ? buildExternalCallbackUrl(saved, appUrl)
+        : null;
+    if (savedCallbackUrl &&
+        incoming.pathname === savedCallbackUrl.pathname &&
+        hasCallbackData(incoming)) {
+        window.location.replace(buildLocalUrl(incoming, saved).href);
+        return;
+    }
     const form = document.querySelector('#settings-form');
     const protocolInput = document.querySelector('#protocol');
     const hostInput = document.querySelector('#host');
     const portInput = document.querySelector('#port');
     const pathInput = document.querySelector('#path');
+    const externalPathInput = document.querySelector('#external-path');
     const publicUrl = document.querySelector('#public-url');
     const localUrl = document.querySelector('#local-url');
     const status = document.querySelector('#status');
     const disableButton = document.querySelector('#disable');
     const cancelButton = document.querySelector('#cancel');
     const copyButton = document.querySelector('#copy-url');
-    const callbackUrl = incoming.origin + incoming.pathname;
-    publicUrl.textContent = callbackUrl;
+    let callbackUrl;
     let redirectTimer;
     function setStatus(message, kind = 'normal') {
         status.className = `status ${kind}`;
@@ -88,21 +128,28 @@ function initializePage() {
         hostInput.value = settings.host;
         portInput.value = String(settings.port);
         pathInput.value = settings.path;
+        externalPathInput.value = settings.externalPath;
         updatePreview();
     }
     function readForm() {
         const portString = portInput.value.trim();
-        return validateSettings({
+        const settings = validateSettings({
             protocol: protocolInput.value,
             host: hostInput.value,
             port: /^\d+$/.test(portString) ? Number(portString) : NaN,
             path: pathInput.value.trim(),
+            externalPath: externalPathInput.value.trim(),
         });
+        buildExternalCallbackUrl(settings, appUrl);
+        return settings;
     }
     function updatePreview() {
         try {
-            const target = buildLocalUrl(new URL(callbackUrl), readForm());
+            const settings = readForm();
+            callbackUrl = buildExternalCallbackUrl(settings, appUrl).href;
+            const target = buildLocalUrl(new URL(callbackUrl), settings);
             localUrl.textContent = target.origin + target.pathname;
+            publicUrl.textContent = callbackUrl;
         }
         catch {
             localUrl.textContent = 'Enter a valid local destination.';
@@ -127,23 +174,11 @@ function initializePage() {
             window.location.replace(target.href);
         }, 900);
     }
-    function loadSettings() {
-        try {
-            const stored = window.localStorage.getItem(storageKey);
-            return stored ? validateSettings(JSON.parse(stored)) : null;
-        }
-        catch {
-            return null;
-        }
-    }
-    const saved = loadSettings();
+    callbackUrl = buildExternalCallbackUrl(saved ?? DEFAULT_SETTINGS, appUrl).href;
     populateForm(saved ?? DEFAULT_SETTINGS);
     disableButton.hidden = saved === null;
     cancelButton.hidden = true;
-    if (saved && hasCallbackData(incoming)) {
-        forward(saved);
-    }
-    else if (saved) {
+    if (saved) {
         setStatus('Forwarding is enabled. Start your OAuth flow using the callback URL above.', 'success');
     }
     else if (hasCallbackData(incoming)) {
@@ -163,7 +198,8 @@ function initializePage() {
             const settings = readForm();
             window.localStorage.setItem(storageKey, JSON.stringify(settings));
             disableButton.hidden = false;
-            if (hasCallbackData(incoming)) {
+            if (incoming.pathname === buildExternalCallbackUrl(settings, appUrl).pathname &&
+                hasCallbackData(incoming)) {
                 forward(settings);
             }
             else {

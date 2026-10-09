@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Forwarding OAuth callback</title>
+    <style>
+      :root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      body { margin: 0; background: #f6f7fa; color: #192437; line-height: 1.5; }
+      main { max-width: 680px; padding: 48px 20px; margin: 0 auto; }
+      .status { padding: 13px 15px; background: white; border: 1px solid #e1e5ec; border-radius: 9px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="status" id="status" role="status">Looking up the configured OAuth callback…</p>
+    </main>
+    <script type="module">
+      const prefix = 'oauth-to-localhost:v1:';
+      const currentPath = window.location.pathname;
+      let appPath = null;
+
+      try {
+        for (let index = 0; index < window.localStorage.length; index += 1) {
+          const key = window.localStorage.key(index);
+          if (!key || !key.startsWith(prefix)) continue;
+
+          try {
+            const candidateAppPath = key.slice(prefix.length);
+            const settings = JSON.parse(window.localStorage.getItem(key));
+            const externalPath = settings.externalPath ?? '/';
+            const callbackPath = new URL(externalPath.slice(1), window.location.origin + candidateAppPath).pathname;
+            if (callbackPath === currentPath) {
+              appPath = candidateAppPath;
+              break;
+            }
+          } catch {
+            // Ignore an invalid settings record and keep looking for a match.
+          }
+        }
+      } catch {
+        // The message below also covers unavailable or invalid browser storage.
+      }
+
+      if (appPath && (window.location.search || window.location.hash)) {
+        await import(new URL('redirect.js', window.location.origin + appPath));
+      } else if (appPath) {
+        document.querySelector('#status').textContent = 'This callback URL did not include OAuth query parameters or a fragment.';
+      } else {
+        document.querySelector('#status').textContent = 'No matching callback is configured in this browser. Open the application root and save this external callback path first.';
+      }
+    </script>
+  </body>
+</html>

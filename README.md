@@ -7,20 +7,26 @@ original query string (including `code` and `state`) and hash fragment.
 ## Deploy
 
 1. Create a GitHub repository (e.g. `toLocalhost`).
-2. Commit `index.html` and `redirect.js` to its root.
+2. Commit `index.html`, `404.html`, and `redirect.js` to its root. The custom
+   404 page handles callback paths that do not correspond to physical files.
 3. Under **Settings → Pages**, select **Deploy from a branch → main → /(root)**.
 4. Visit `https://YOUR-USERNAME.github.io/toLocalhost/`.
-5. Set the host, port, and callback path of your local app, then click
-   **Save and enable**. Your settings stay in this browser's localStorage.
+5. Set the external callback path and the host, port, and callback path of your
+   local app, then click **Save and enable**. Your settings stay in this
+   browser's localStorage.
 6. Register the exact HTTPS URL shown on the page as an authorized OAuth
    redirect URI, and use that same URL as `redirect_uri` in the authorization
    request (and in any token request that requires `redirect_uri`).
 
 ## Example
 
-Public registered OAuth callback:
+External callback path:
 
-    https://YOUR-USERNAME.github.io/toLocalhost/
+    /api/providers/strava/callback
+
+Public registered OAuth callback shown by the page:
+
+    https://YOUR-USERNAME.github.io/toLocalhost/api/providers/strava/callback
 
 Saved local destination:
 
@@ -28,7 +34,7 @@ Saved local destination:
 
 When the OAuth provider navigates the browser to:
 
-    https://YOUR-USERNAME.github.io/toLocalhost/?code=abc123&state=xyz
+    https://YOUR-USERNAME.github.io/toLocalhost/api/providers/strava/callback?code=abc123&state=xyz
 
 The page redirects it to:
 
@@ -36,12 +42,15 @@ The page redirects it to:
 
 The same works for fragment callbacks (e.g. `#access_token=...`).
 
-If the bridge has not been enabled in the current browser, it displays the
-settings form and lets you enable forwarding of the current callback.
+The external callback path must be saved in the same browser before starting
+the OAuth flow. Otherwise, the callback page explains that no matching route
+is configured and does not forward the response.
 
 ## Important limitations
 
 - This is a *client-side browser redirect*, not an HTTP 302 response or a proxy.
+  Nested callback URLs receive GitHub Pages' 404 status while the custom 404
+  document runs the redirect in the browser.
 - Works for front-channel OAuth callbacks with query or fragment parameters;
   **not** `response_mode=form_post`, API webhooks, or server-to-server requests.
 - The OAuth provider must allow your GitHub Pages HTTPS callback URL. Some
