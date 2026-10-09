@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>OAuth → localhost</title>
+    <style>
+      :root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #f6f7fa; color: #192437; line-height: 1.5; }
+      main { max-width: 680px; padding: 48px 20px 72px; margin: 0 auto; }
+      .eyebrow { font-size: 12px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; color: #5268a0; }
+      h1 { margin: 10px 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.15; letter-spacing: -.035em; }
+      .lede { color: #536074; max-width: 580px; margin: 14px 0 26px; }
+      .panel { background: white; border: 1px solid #e1e5ec; border-radius: 16px; box-shadow: 0 8px 32px rgba(26, 39, 63, .055); padding: 26px; }
+      h2 { font-size: 18px; margin: 0 0 16px; letter-spacing: -.01em; }
+      label { display: block; font-size: 13px; font-weight: 680; color: #394458; margin-bottom: 6px; }
+      input, select { width: 100%; background: #fff; font: inherit; padding: 10px 11px; border: 1px solid #cbd3df; border-radius: 9px; color: #192437; }
+      input:focus, select:focus, button:focus-visible { outline: 3px solid #a7c6ff; outline-offset: 2px; }
+      .fields { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 14px; }
+      .field { min-width: 0; }
+      .path { margin: 16px 0 22px; }
+      button { font: inherit; font-size: 14px; padding: 10px 15px; border-radius: 9px; font-weight: 650; cursor: pointer; }
+      .primary { background: #2459d3; color: white; border: 1px solid #2459d3; }
+      .primary:hover { background: #184bbf; }
+      .secondary { color: #344359; background: white; border: 1px solid #cbd3df; }
+      .secondary:hover { background: #f2f5f9; }
+      .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+      [hidden] { display: none !important; }
+      .status { margin: 18px 0 0; padding: 11px 13px; background: #f1f3f7; color: #42506a; border-radius: 8px; font-size: 14px; }
+      .status.success { background: #eaf7ee; color: #16603b; }
+      .status.warning { background: #fff6e5; color: #78510d; }
+      .status.error { background: #fff0f0; color: #9f2525; }
+      .destinations { margin: 28px 0 0; display: grid; gap: 17px; }
+      .info-label { font-size: 12px; text-transform: uppercase; font-weight: 700; color: #5d6b81; letter-spacing: .055em; margin: 0 0 6px; }
+      .value-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+      code { display: inline-block; overflow-wrap: anywhere; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #edf1f7; color: #203451; padding: 9px 11px; border-radius: 7px; }
+      .hint { font-size: 13px; color: #647084; margin: 6px 0 0; }
+      footer { font-size: 13px; color: #687589; margin-top: 24px; }
+      @media (max-width: 540px) { .fields { grid-template-columns: 1fr 1fr; } .fields .field:nth-child(2) { grid-column: 2; } .fields .field:nth-child(3) { grid-column: 1 / -1; } .panel { padding: 20px; } }
+    </style>
+    <script type="module" src="./redirect.js"></script>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">Developer utility</div>
+      <h1>Redirect OAuth callbacks to localhost</h1>
+      <p class="lede">Some OAuth providers require a public HTTPS callback URL. Register this page instead, and it will send the browser back to your development app with the original callback parameters intact.</p>
+
+      <section class="panel" aria-labelledby="settings-title">
+        <h2 id="settings-title">Local destination</h2>
+        <form id="settings-form">
+          <div class="fields">
+            <div class="field">
+              <label for="protocol">Protocol</label>
+              <select id="protocol"><option value="http:">HTTP</option><option value="https:">HTTPS</option></select>
+            </div>
+            <div class="field">
+              <label for="host">Host</label>
+              <select id="host"><option value="localhost">localhost</option><option value="127.0.0.1">127.0.0.1</option><option value="[::1]">[::1] (IPv6)</option></select>
+            </div>
+            <div class="field">
+              <label for="port">Port</label>
+              <input id="port" type="number" min="1" max="65535" step="1" required value="3000" />
+            </div>
+          </div>
+          <div class="path">
+            <label for="path">Local callback path</label>
+            <input id="path" type="text" required value="/" placeholder="/auth/callback" spellcheck="false" />
+            <p class="hint">For example, /auth/callback. The incoming query string and fragment will be added automatically.</p>
+          </div>
+          <div class="actions">
+            <button class="primary" type="submit">Save and enable</button>
+            <button class="secondary" type="button" id="disable" hidden>Disable</button>
+            <button class="secondary" type="button" id="cancel" hidden>Cancel redirect</button>
+          </div>
+        </form>
+        <p id="status" class="status" role="status" aria-live="polite">Loading settings…</p>
+      </section>
+
+      <section class="destinations" aria-label="Redirect URLs">
+        <div>
+          <p class="info-label">Register this URL with your OAuth provider</p>
+          <div class="value-row"><code id="public-url"></code><button class="secondary" id="copy-url" type="button">Copy URL</button></div>
+          <p class="hint">Use this exact HTTPS address as your redirect_uri.</p>
+        </div>
+        <div>
+          <p class="info-label">Forward incoming callbacks to</p>
+          <code id="local-url"></code>
+        </div>
+      </section>
+      <footer>No server, third-party scripts, or external requests. Settings are stored only in this browser. For GET/fragment OAuth callbacks, not form_post callbacks.</footer>
+    </main>
+  </body>
+</html>
