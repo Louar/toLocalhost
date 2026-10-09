@@ -6,10 +6,10 @@ original query string (including `code` and `state`) and hash fragment.
 
 ## Deploy
 
-1. Create a GitHub repository (e.g. `oauth-to-localhost`).
+1. Create a GitHub repository (e.g. `toLocalhost`).
 2. Commit `index.html` and `redirect.js` to its root.
 3. Under **Settings → Pages**, select **Deploy from a branch → main → /(root)**.
-4. Visit `https://YOUR-USERNAME.github.io/oauth-to-localhost/`.
+4. Visit `https://YOUR-USERNAME.github.io/toLocalhost/`.
 5. Set the host, port, and callback path of your local app, then click
    **Save and enable**. Your settings stay in this browser's localStorage.
 6. Register the exact HTTPS URL shown on the page as an authorized OAuth
@@ -20,7 +20,7 @@ original query string (including `code` and `state`) and hash fragment.
 
 Public registered OAuth callback:
 
-    https://YOUR-USERNAME.github.io/oauth-to-localhost/
+    https://YOUR-USERNAME.github.io/toLocalhost/
 
 Saved local destination:
 
@@ -28,7 +28,7 @@ Saved local destination:
 
 When the OAuth provider navigates the browser to:
 
-    https://YOUR-USERNAME.github.io/oauth-to-localhost/?code=abc123&state=xyz
+    https://YOUR-USERNAME.github.io/toLocalhost/?code=abc123&state=xyz
 
 The page redirects it to:
 
